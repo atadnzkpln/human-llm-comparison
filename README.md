@@ -7,7 +7,7 @@ The code + analyses folder contains the analysis and game engine code files used
 
 After downloading the repository, open the code folder in your Python terminal. Then run the relevant command below. Depending on your Python installation, use either python or python3.
 
-Pac-Man-like game
+## Pac-Man-like game
 
 To run the Pac-Man-like game with explicit rules:
 
@@ -16,7 +16,8 @@ python3 level1.py
 To run the Pac-Man-like game with implicit rules:
 
 python3 level1.py --implicit
-Language reasoning game
+
+## Language reasoning game
 
 To run the language game for the low, medium, and high complexity levels:
 
