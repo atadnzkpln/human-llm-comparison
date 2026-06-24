@@ -1,0 +1,766 @@
+import pygame
+from pygame.locals import *
+import sys
+import math
+import os
+import copy
+
+FONT_PATH = os.path.join(os.path.dirname(__file__), "PressStart2P-Regular.ttf")
+PADDING   = 65
+
+# ─── Kleuren ───────────────────────────────────────────────────────────────────
+C_BG           = (10,  10,  30)
+C_GRID         = (40,  60, 120)
+C_CELL         = (20,  20,  60)
+C_LABEL        = (120, 140, 200)
+C_PAC          = (255, 220,   0)
+C_PAC_POWERED  = (255, 140,   0)
+C_EYE          = (255, 255, 255)
+C_EYE_PUP      = (  0,   0,   0)
+C_FOOD         = (255, 100, 100)
+C_FOOD_IN      = (255, 180, 180)
+C_BANANA       = (255, 220,  50)
+C_BANANA_D     = (180, 140,   0)
+C_WALL_X       = (220,  40,  40)
+C_GHOST        = (200, 200, 255)
+C_GHOST_SCARED = ( 30,  80, 200)
+C_GHOST_EYE    = (  0,  80, 200)
+C_GHOST_EYE_SC = (255, 200, 200)
+C_GATE_OPEN    = ( 40, 220, 120)
+C_GATE_SHUT    = (160,  50,  50)
+C_GATE_FRAME   = (200, 200,  60)
+C_TP_A         = ( 80,  60, 220)
+C_TP_B         = ( 30, 180, 220)
+C_LIGHTNING    = (255, 255,  60)
+C_LIGHTNING_D  = (255, 160,   0)
+C_BOX          = (160, 100,  40)
+C_BOX_EDGE     = (100,  60,  20)
+C_BOX_CROSS    = (120,  75,  30)
+C_MOVE_OK      = ( 80, 200, 120)
+C_MOVE_WARN    = (230, 160,  30)
+C_MOVE_NO      = ( 50,  50,  90)
+C_MOVE_BAR     = ( 25,  25,  60)
+C_POWER_BAR    = (255, 200,   0)
+C_WIN          = ( 80, 220, 130)
+C_LOSE         = (220,  70,  70)
+C_WHITE        = (255, 255, 255)
+C_BORDER       = ( 70,  90, 200)
+C_NEXT         = ( 80, 180, 255)
+
+# ─── Level-definities ──────────────────────────────────────────────────────────
+LEVELS = [
+    # ── Level 1 ───────────────────────────────────────────────────────────────
+    {
+        "title":               "LEVEL 1",
+        "cols":                8, "rows": 2, "cell": 90,
+        "start":               (0, 0),
+        "goals":               [{"pos": (7, 1), "type": "food"}],
+        "max_moves":           10,
+        "walls":               set(),
+        "gate":                None,
+        "ghost":               None,
+        "teleporters":         None,
+        "powerup":             None,
+        "require_ghost_eaten": False,
+        "pushable_blocks":     [],
+    },
+    # ── Level 2 ───────────────────────────────────────────────────────────────
+    {
+        "title":               "LEVEL 2",
+        "cols":                7, "rows": 7, "cell": 82,
+        "start":               (0, 0),
+        "goals":               [{"pos": (6, 3), "type": "banana"}],
+        "max_moves":           30,
+        "walls":     {
+            (3, 0),
+            (1, 1), (5, 1),
+            (1, 2), (3, 2), (5, 2),
+            (1, 4), (3, 4), (5, 4),
+            (1, 5),         (5, 5),
+            (3, 6),
+        },
+        "gate":                None,
+        "ghost":               {"col": 0, "row": 3, "axis": "h",
+                                "min_col": 0, "max_col": 5, "dir": 1},
+        "teleporters":         None,
+        "powerup":             None,
+        "require_ghost_eaten": False,
+        "pushable_blocks":     [],
+    },
+    # ── Level 3 ───────────────────────────────────────────────────────────────
+    {
+        "title":               "LEVEL 3",
+        "cols":                7, "rows": 7, "cell": 82,
+        "start":               (0, 0),
+        "goals":               [
+            {"pos": (0, 4), "type": "banana"},
+            {"pos": (5, 6), "type": "banana"},
+        ],
+        "max_moves":           45,
+        "walls":     {
+            (2, 0), (3, 0), (4, 0), (5, 0),
+            (0, 1), (2, 1), (2, 2),
+            (0, 2), (5, 2), (6, 2),
+            (2, 4), (3, 4), (5, 4), (6, 4),
+            (0, 5), (2, 5), (6, 5),
+            (0, 6), (2, 6), (3, 6), (6, 6),
+        },
+        "gate":                {"pos": (3, 3), "open": True},
+        "ghost":               {"col": 1, "row": 1, "axis": "v",
+                                "min_row": 1, "max_row": 5, "dir": 1},
+        "teleporters":         None,
+        "powerup":             None,
+        "require_ghost_eaten": False,
+        "pushable_blocks":     [],
+    },
+    # ── Level 4 ───────────────────────────────────────────────────────────────
+    {
+        "title":               "LEVEL 4",
+        "cols":                7, "rows": 7, "cell": 82,
+        "start":               (0, 0),
+        "goals":               [
+            {"pos": (3, 0), "type": "banana"},
+            {"pos": (5, 6), "type": "banana"},
+        ],
+        "max_moves":           30,
+        "walls":     {
+            (2, 0), (4, 0), (5, 0), (6, 0),
+            (0, 1),         (2, 1),
+            (2, 2), (4, 2), (5, 2), (6, 2),
+            (0, 4), (2, 4), (3, 4),(5, 4),(6, 4),
+            (0, 5), (2, 5),         (6, 5),
+            (0, 6), (2, 6), (3, 6),(6, 6),
+        },
+        "gate":                {"pos": (3, 3), "open": True},
+        "ghost":               {"col": 1, "row": 1, "axis": "v",
+                                "min_row": 1, "max_row": 5, "dir": 1},
+        "teleporters":         [(1, 6), (6, 1)],
+        "powerup":             None,
+        "require_ghost_eaten": False,
+        "pushable_blocks":     [],
+    },
+    # ── Level 5 ───────────────────────────────────────────────────────────────
+    {
+        "title":               "LEVEL 5",
+        "cols":                7, "rows": 7, "cell": 82,
+        "start":               (0, 0),
+        "goals":               [
+            {"pos": (3, 0), "type": "banana"},
+            {"pos": (5, 6), "type": "banana"},
+        ],
+        "max_moves":           40,
+        "walls":     {
+            (2, 0), (4, 0), (5, 0), (6, 0),
+            (0, 1),         (2, 1),
+            (2, 2), (4, 2), (5, 2), (6, 2),
+            (0, 4), (2, 4), (3, 4),(5, 4),(6, 4),
+            (0, 5), (2, 5),         (6, 5),
+            (0, 6),(6, 6),
+        },
+        "gate":                {"pos": (3, 3), "open": True},
+        "ghost":               {"col": 1, "row": 1, "axis": "v",
+                                "min_row": 1, "max_row": 5, "dir": 1},
+        "teleporters":         [(0, 2), (6, 1)],
+        "powerup":             {"pos": (1,6)},
+        "require_ghost_eaten": True,
+        "pushable_blocks":     [],
+    },
+    # ── Level 6 ───────────────────────────────────────────────────────────────
+    # Muren = level 5 + D6 (3,5). Gate op D3. Ghost B4↔F4.
+    # Teleporters A3↔G2. Bananen D1+G6. Power-up G4. Krat F6.
+    {
+        "title":               "LEVEL 6",
+        "cols":                7, "rows": 7, "cell": 82,
+        "start":               (0, 0),
+        "goals":               [
+            {"pos": (3, 0), "type": "banana"},   # D1
+            {"pos": (6, 5), "type": "banana"},   # G6
+        ],
+        "max_moves":           45,
+        "walls":     {
+            (2, 0), (4, 0), (5, 0), (6, 0),       # C1 E1 F1 G1
+            (0, 1),         (2, 1),                # A2 C2
+            (2, 2), (4, 2), (5, 2), (6, 2),        # C3 E3 F3 G3  (D3=gate)
+            # rij 3: geen muren  (G4=powerup, vrij pad)
+            (0, 4), (2, 4), (3, 4),(6, 4),  # A5 C5 D5 F5 G5
+            (0, 5), (2, 5), (3, 5),                # A6 C6 D6  (+extra vs lvl5)
+            (0, 6),(6, 6),                          # A7 G7
+        },
+        "gate":                {"pos": (3, 2), "open": True},   # D3 one-shot gate
+        "ghost":               {"col": 1, "row": 3, "axis": "h",
+                                "min_col": 1, "max_col": 5, "dir": 1},  # B4 ↔ F4
+        "teleporters":         [(0, 2), (6, 1)],               # A3 <--> G2
+        "powerup":             {"pos": (6, 3)},                # G4
+        "require_ghost_eaten": False,
+        "pushable_blocks":     [(5, 5)],                       # F6
+    },
+]
+
+POWER_TURNS = 5
+
+# ─── State aanmaken ───────────────────────────────────────────────────────────
+def make_state(lvl):
+    return {
+        "col":           lvl["start"][0],
+        "row":           lvl["start"][1],
+        "moves_left":    lvl["max_moves"],
+        "direction":     "RIGHT",
+        "status":        "playing",
+        "reason":        "",
+        "goals":         [dict(g) for g in lvl["goals"]],
+        "gate":          dict(lvl["gate"]) if lvl["gate"] else None,
+        "ghost":         copy.deepcopy(lvl["ghost"]) if lvl["ghost"] else None,
+        "powerup_taken": False,
+        "powered_turns": 0,
+        "ghost_eaten":   False,
+        "boxes":         [list(b) for b in lvl["pushable_blocks"]],
+    }
+
+
+# ─── Ghost beweging ───────────────────────────────────────────────────────────
+def move_ghost(ghost, walls, extra_walls):
+    all_walls = walls | extra_walls
+    if ghost["axis"] == "h":
+        nxt = ghost["col"] + ghost["dir"]
+        if (nxt < ghost["min_col"] or nxt > ghost["max_col"]
+                or (nxt, ghost["row"]) in all_walls):
+            ghost["dir"] *= -1
+            nxt = ghost["col"] + ghost["dir"]
+        if (ghost["min_col"] <= nxt <= ghost["max_col"]
+                and (nxt, ghost["row"]) not in all_walls):
+            ghost["col"] = nxt
+    else:
+        nxt = ghost["row"] + ghost["dir"]
+        if (nxt < ghost["min_row"] or nxt > ghost["max_row"]
+                or (ghost["col"], nxt) in all_walls):
+            ghost["dir"] *= -1
+            nxt = ghost["row"] + ghost["dir"]
+        if (ghost["min_row"] <= nxt <= ghost["max_row"]
+                and (ghost["col"], nxt) not in all_walls):
+            ghost["row"] = nxt
+
+
+# ─── Teken-hulpfuncties ───────────────────────────────────────────────────────
+def cell_rect(col, row, lvl):
+    return pygame.Rect(PADDING + col * lvl["cell"],
+                       PADDING + row * lvl["cell"],
+                       lvl["cell"], lvl["cell"])
+
+
+def draw_wall(surf, rect):
+    m = 14
+    pygame.draw.line(surf, C_WALL_X, (rect.x+m, rect.y+m),
+                     (rect.right-m, rect.bottom-m), 5)
+    pygame.draw.line(surf, C_WALL_X, (rect.right-m, rect.y+m),
+                     (rect.x+m, rect.bottom-m), 5)
+
+
+def draw_gate(surf, col, row, lvl, open_, t):
+    rect = cell_rect(col, row, lvl)
+    cx   = rect.centerx
+    c    = lvl["cell"]
+    m, pw = 8, 10
+    if open_:
+        pygame.draw.rect(surf, C_GATE_FRAME,
+                         pygame.Rect(rect.x+m, rect.y+m, pw, c-2*m), border_radius=3)
+        pygame.draw.rect(surf, C_GATE_FRAME,
+                         pygame.Rect(rect.right-m-pw, rect.y+m, pw, c-2*m), border_radius=3)
+        arc_rect = pygame.Rect(rect.x+m, rect.y+m, c-2*m, (c-2*m)//2)
+        pygame.draw.arc(surf, C_GATE_OPEN, arc_rect, 0, math.pi, 4)
+        glow_w = max(1, c-2*m-pw*2-4)
+        glow   = pygame.Surface((glow_w, c-2*m), pygame.SRCALPHA)
+        glow.fill((*C_GATE_OPEN, int(60 + 40 * math.sin(t * 3))))
+        surf.blit(glow, (rect.x+m+pw+2, rect.y+m))
+    else:
+        pygame.draw.rect(surf, C_GATE_SHUT,
+                         pygame.Rect(rect.x+m, rect.y+m, c-2*m, c-2*m), border_radius=4)
+        for i in range(4):
+            by = rect.y + m + (c-2*m)*i//4
+            pygame.draw.line(surf, C_GATE_FRAME, (rect.x+m, by), (rect.right-m, by), 3)
+        pygame.draw.line(surf, C_GATE_FRAME, (cx, rect.y+m), (cx, rect.bottom-m), 3)
+
+
+def draw_teleporter(surf, col, row, lvl, t, color_inner, color_outer):
+    rect = cell_rect(col, row, lvl)
+    cx, cy = rect.centerx, rect.centery
+    rings  = 5
+    for i in range(rings, 0, -1):
+        r     = int((lvl["cell"] * 0.38) * i / rings)
+        angle = t * 2.5 + i * (math.pi * 2 / rings)
+        ax    = int(cx + r * 0.7 * math.cos(angle))
+        ay    = int(cy + r * 0.7 * math.sin(angle))
+        frac  = i / rings
+        rc    = int(color_outer[0]*frac + color_inner[0]*(1-frac))
+        gc2   = int(color_outer[1]*frac + color_inner[1]*(1-frac))
+        bc    = int(color_outer[2]*frac + color_inner[2]*(1-frac))
+        alpha = int(80 + 120 * (1 - frac))
+        cs    = pygame.Surface((r*2+2, r*2+2), pygame.SRCALPHA)
+        pygame.draw.circle(cs, (rc, gc2, bc, alpha), (r+1, r+1), r, max(1, r//3))
+        surf.blit(cs, (cx-r-1, cy-r-1))
+        pygame.draw.line(surf, (rc, gc2, bc), (cx, cy), (ax, ay), 2)
+    pygame.draw.circle(surf, (0, 0, 0), (cx, cy), int(lvl["cell"] * 0.10))
+    pygame.draw.circle(surf, C_WHITE,   (cx, cy), int(4 + 3*math.sin(t*6)))
+
+
+def draw_lightning(surf, col, row, lvl, t):
+    rect = cell_rect(col, row, lvl)
+    cx, cy = rect.centerx, rect.centery + int(3 * math.sin(t * 4))
+    s = int(lvl["cell"] * 0.28)
+    pts = [(cx + s*0.1,  cy - s),
+           (cx - s*0.1,  cy - s*0.05),
+           (cx + s*0.3,  cy - s*0.05),
+           (cx - s*0.4,  cy + s),
+           (cx + s*0.05, cy + s*0.1),
+           (cx - s*0.2,  cy + s*0.1)]
+    pts = [(int(x), int(y)) for x, y in pts]
+    pulse = int(20 + 8 * math.sin(t * 5))
+    glow_surf = pygame.Surface((pulse*2, pulse*2), pygame.SRCALPHA)
+    pygame.draw.circle(glow_surf, (*C_LIGHTNING, 60), (pulse, pulse), pulse)
+    surf.blit(glow_surf, (cx - pulse, cy - pulse))
+    pygame.draw.polygon(surf, C_LIGHTNING_D, pts)
+    pygame.draw.polygon(surf, C_LIGHTNING,   pts, 2)
+
+
+def draw_box(surf, col, row, lvl):
+    """Houten krat met kruisverbinding."""
+    rect  = cell_rect(col, row, lvl)
+    m     = 8
+    inner = pygame.Rect(rect.x+m, rect.y+m, rect.w-2*m, rect.h-2*m)
+    # Schaduw
+    pygame.draw.rect(surf, (10, 10, 20),
+                     pygame.Rect(inner.x+4, inner.y+4, inner.w, inner.h), border_radius=4)
+    # Vlak
+    pygame.draw.rect(surf, C_BOX, inner, border_radius=4)
+    # Rand
+    pygame.draw.rect(surf, C_BOX_EDGE, inner, 3, border_radius=4)
+    # Kruis-latten
+    cx, cy = inner.centerx, inner.centery
+    pygame.draw.line(surf, C_BOX_CROSS, (inner.x, cy), (inner.right, cy), 2)
+    pygame.draw.line(surf, C_BOX_CROSS, (cx, inner.y), (cx, inner.bottom), 2)
+    # Hoek-bouten
+    for bx, by in [(inner.x+5, inner.y+5), (inner.right-5, inner.y+5),
+                   (inner.x+5, inner.bottom-5), (inner.right-5, inner.bottom-5)]:
+        pygame.draw.circle(surf, C_BOX_EDGE, (bx, by), 3)
+
+
+def draw_grid(surf, lvl, font_small, t):
+    cols, rows, cell = lvl["cols"], lvl["rows"], lvl["cell"]
+    for r in range(rows):
+        for c in range(cols):
+            rect = cell_rect(c, r, lvl)
+            pygame.draw.rect(surf, C_CELL, rect)
+            if (c, r) in lvl["walls"]:
+                draw_wall(surf, rect)
+            pygame.draw.rect(surf, C_GRID, rect, 2)
+    if lvl["teleporters"]:
+        tp = lvl["teleporters"]
+        draw_teleporter(surf, tp[0][0], tp[0][1], lvl, t, C_TP_A, (150, 80, 255))
+        draw_teleporter(surf, tp[1][0], tp[1][1], lvl, t + math.pi, C_TP_B, (30, 220, 255))
+    for c in range(cols):
+        img = font_small.render(chr(ord('A') + c), True, C_LABEL)
+        surf.blit(img, (PADDING + c*cell + cell//2 - img.get_width()//2,
+                        PADDING - img.get_height() - 10))
+    for r in range(rows):
+        img = font_small.render(str(r+1), True, C_LABEL)
+        surf.blit(img, (PADDING - img.get_width() - 12,
+                        PADDING + r*cell + cell//2 - img.get_height()//2))
+
+
+def draw_food(surf, col, row, lvl, t):
+    rect = cell_rect(col, row, lvl)
+    cx, cy = rect.centerx, rect.centery
+    p = int(4 * math.sin(t * 3))
+    pygame.draw.circle(surf, C_FOOD,    (cx, cy), 18+p)
+    pygame.draw.circle(surf, C_FOOD_IN, (cx, cy), 10+p)
+
+
+def draw_banana(surf, col, row, lvl, t):
+    rect = cell_rect(col, row, lvl)
+    cx, cy = rect.centerx, rect.centery + int(3 * math.sin(t * 2.5))
+    pts = [(cx + 22*math.cos(math.pi*0.15 + math.pi*0.7*i/19),
+            cy + 14*math.sin(math.pi*0.15 + math.pi*0.7*i/19) - 6)
+           for i in range(20)]
+    pygame.draw.lines(surf, C_BANANA,   False, pts, 8)
+    pygame.draw.lines(surf, C_BANANA_D, False, pts, 3)
+    pygame.draw.circle(surf, C_BANANA_D, (int(pts[0][0]),  int(pts[0][1])),  4)
+    pygame.draw.circle(surf, C_BANANA_D, (int(pts[-1][0]), int(pts[-1][1])), 4)
+
+
+def draw_pacman(surf, col, row, lvl, t, direction, powered):
+    rect  = cell_rect(col, row, lvl)
+    cx, cy = rect.centerx, rect.centery
+    r      = int(lvl["cell"] * 0.28)
+    mouth  = abs(math.sin(t * 5)) * 35 + 5
+    base   = {"RIGHT": 0, "LEFT": 180, "DOWN": 90, "UP": 270}.get(direction, 0)
+    span   = 360 - 2*mouth
+    color  = C_PAC_POWERED if powered else C_PAC
+    if powered:
+        glow = pygame.Surface((r*4, r*4), pygame.SRCALPHA)
+        pygame.draw.circle(glow, (*C_LIGHTNING, int(60 + 40*math.sin(t*8))), (r*2, r*2), r*2)
+        surf.blit(glow, (cx - r*2, cy - r*2))
+    pts = [(cx, cy)]
+    for i in range(41):
+        a = math.radians(base + mouth + span*i/40)
+        pts.append((cx + r*math.cos(a), cy - r*math.sin(a)))
+    pygame.draw.polygon(surf, color, pts)
+    ex, ey = {"RIGHT": (-4,-10), "LEFT": (4,-10),
+              "DOWN": (-8,-4), "UP": (-8,-4)}.get(direction, (-4,-10))
+    pygame.draw.circle(surf, C_EYE,     (cx+ex,   cy+ey),   4)
+    pygame.draw.circle(surf, C_EYE_PUP, (cx+ex+1, cy+ey+1), 2)
+
+
+def draw_ghost(surf, col, row, lvl, t, scared):
+    rect  = cell_rect(col, row, lvl)
+    cx, cy = rect.centerx, rect.centery + int(3 * math.sin(t * 2))
+    r     = int(lvl["cell"] * 0.28)
+    if scared:
+        color = C_WHITE if int(t * 6) % 2 == 0 else C_GHOST_SCARED
+    else:
+        color = C_GHOST
+    pygame.draw.ellipse(surf, color, pygame.Rect(cx-r, cy-r, r*2, r*2))
+    pygame.draw.rect(surf, color, pygame.Rect(cx-r, cy, r*2, r))
+    segs = 4
+    wave = [(cx - r + 2*r*i/segs, cy + r - int(6*math.sin(math.pi*i)))
+            for i in range(segs+1)]
+    pygame.draw.polygon(surf, C_BG, [(cx-r, cy+r+2)] + wave + [(cx+r, cy+r+2)])
+    eye_col = C_GHOST_EYE_SC if scared else C_EYE
+    for ex in (-r//3, r//3):
+        pygame.draw.circle(surf, eye_col, (cx+ex, cy - r//4), 5)
+        if not scared:
+            pygame.draw.circle(surf, C_GHOST_EYE, (cx+ex+1, cy - r//4 + 1), 3)
+
+
+def draw_hud(surf, lvl, state, font_med, font_small):
+    hud_y     = PADDING + lvl["rows"] * lvl["cell"] + 18
+    max_moves = lvl["max_moves"]
+    grid_w    = lvl["cols"] * lvl["cell"]
+    moves     = state["moves_left"]
+    powered   = state["powered_turns"]
+
+    surf.blit(font_small.render("MOVES OVER", True, C_LABEL), (PADDING, hud_y))
+    pygame.draw.rect(surf, C_MOVE_BAR,
+                     pygame.Rect(PADDING, hud_y+26, grid_w, 30), border_radius=6)
+    bw = max(1, (grid_w - 4) // max_moves)
+    for i in range(max_moves):
+        color = (C_MOVE_NO if i >= moves else
+                 C_MOVE_WARN if moves <= max_moves * 0.25 else C_MOVE_OK)
+        pygame.draw.rect(surf, color,
+                         pygame.Rect(PADDING+2+i*bw, hud_y+28, bw-2, 26),
+                         border_radius=3)
+    num = font_med.render(str(moves), True, C_WHITE)
+    surf.blit(num, (PADDING + grid_w + 14, hud_y + 26 + 15 - num.get_height()//2))
+
+    total = len(state["goals"])
+    if total > 1:
+        done = sum(1 for g in state["goals"] if g.get("collected"))
+        txt = font_small.render(f"BANANEN: {done}/{total}", True, C_BANANA)
+        surf.blit(txt, (PADDING, hud_y + 65))
+
+    if lvl["powerup"]:
+        pw_label = font_small.render("POWER:", True, C_LIGHTNING)
+        surf.blit(pw_label, (PADDING + grid_w//2, hud_y + 65))
+        bar_x = PADDING + grid_w//2 + pw_label.get_width() + 8
+        for i in range(POWER_TURNS):
+            bc = C_POWER_BAR if i < powered else C_MOVE_NO
+            pygame.draw.rect(surf, bc,
+                             pygame.Rect(bar_x + i*18, hud_y + 65, 14, 14),
+                             border_radius=3)
+
+    if lvl["require_ghost_eaten"]:
+        if state["ghost_eaten"]:
+            gtxt = font_small.render("GEEST: GEGETEN!", True, C_WIN)
+        elif powered:
+            gtxt = font_small.render("GEEST: EET HEM NU!", True, C_LIGHTNING)
+        else:
+            gtxt = font_small.render("GEEST: PAKT JE!", True, C_LOSE)
+        surf.blit(gtxt, (PADDING, hud_y + 85))
+
+
+def draw_level_complete(surf, font_big, font_small, win_w, win_h, next_num):
+    overlay = pygame.Surface((win_w, win_h), pygame.SRCALPHA)
+    overlay.fill((0, 0, 0, 170))
+    surf.blit(overlay, (0, 0))
+    msg = font_big.render("LEVEL COMPLEET!", True, C_WIN)
+    surf.blit(msg, (win_w//2 - msg.get_width()//2, win_h//2 - 50))
+    if next_num:
+        sub = font_small.render(f"Druk SPATIE voor Level {next_num}", True, C_NEXT)
+    else:
+        sub = font_small.render("Gefeliciteerd! Uitgespeeld!  [R]", True, C_WHITE)
+    surf.blit(sub, (win_w//2 - sub.get_width()//2, win_h//2 + 12))
+
+
+def draw_game_over(surf, font_big, font_small, reason, win_w, win_h):
+    overlay = pygame.Surface((win_w, win_h), pygame.SRCALPHA)
+    overlay.fill((0, 0, 0, 170))
+    surf.blit(overlay, (0, 0))
+    msg = font_big.render("GAME OVER", True, C_LOSE)
+    surf.blit(msg, (win_w//2 - msg.get_width()//2, win_h//2 - 50))
+    sub = font_small.render(reason, True, C_WHITE)
+    surf.blit(sub, (win_w//2 - sub.get_width()//2, win_h//2 + 10))
+    hint = font_small.render("Druk R om opnieuw te starten", True, C_LABEL)
+    surf.blit(hint, (win_w//2 - hint.get_width()//2, win_h//2 + 40))
+
+
+# ─── Hoofd game-loop ──────────────────────────────────────────────────────────
+def main():
+    pygame.init()
+
+    if os.path.exists(FONT_PATH):
+        font_big   = pygame.font.Font(FONT_PATH, 18)
+        font_med   = pygame.font.Font(FONT_PATH, 20)
+        font_small = pygame.font.Font(FONT_PATH, 10)
+    else:
+        font_big   = pygame.font.SysFont("monospace", 26, bold=True)
+        font_med   = pygame.font.SysFont("monospace", 22, bold=True)
+        font_small = pygame.font.SysFont("monospace", 15)
+
+    # Eén fullscreen venster, alle levels schalen ernaar
+    screen = pygame.display.set_mode((0, 0), FULLSCREEN)
+    fs_w, fs_h = screen.get_size()
+
+    current_level_idx = 0
+
+    def switch_to(idx):
+        nonlocal current_level_idx, lvl, state, t
+        current_level_idx = idx
+        lvl   = LEVELS[idx]
+        state = make_state(lvl)
+        pygame.display.set_caption(f"NP-Hard Pac-Man  –  {lvl['title']}")
+        t = 0.0
+
+    lvl   = LEVELS[0]
+    state = make_state(lvl)
+    pygame.display.set_caption(f"NP-Hard Pac-Man  –  {lvl['title']}")
+    clock = pygame.time.Clock()
+    t     = 0.0
+
+    while True:
+        dt = clock.tick(60) / 1000.0
+        t += dt
+
+        for event in pygame.event.get():
+            if event.type == QUIT:
+                pygame.quit(); sys.exit()
+
+            if event.type == KEYDOWN:
+                if event.key == K_ESCAPE:
+                    pygame.quit(); sys.exit()
+
+                if event.key == K_r:
+                    switch_to(current_level_idx)
+                    continue
+
+                if event.key == K_SPACE and state["status"] == "level_complete":
+                    nxt = current_level_idx + 1
+                    if nxt < len(LEVELS):
+                        switch_to(nxt)
+                    continue
+
+                if state["status"] != "playing":
+                    continue
+
+                # ── Richting bepalen ─────────────────────────────────────────
+                dc, dr, direction = 0, 0, state["direction"]
+                if   event.key in (K_RIGHT, K_d): dc, direction =  1, "RIGHT"
+                elif event.key in (K_LEFT,  K_a): dc, direction = -1, "LEFT"
+                elif event.key in (K_DOWN,  K_s): dr, direction =  1, "DOWN"
+                elif event.key in (K_UP,    K_w): dr, direction = -1, "UP"
+
+                if dc == 0 and dr == 0:
+                    continue
+
+                new_col = state["col"] + dc
+                new_row = state["row"] + dr
+                gate    = state["gate"]
+
+                box_positions = {(b[0], b[1]) for b in state["boxes"]}
+
+                # ── Collision checks ─────────────────────────────────────────
+                out_of_bounds = not (0 <= new_col < lvl["cols"]
+                                     and 0 <= new_row < lvl["rows"])
+                hits_wall     = (not out_of_bounds
+                                 and (new_col, new_row) in lvl["walls"])
+                hits_gate     = (not out_of_bounds and not hits_wall
+                                 and gate and not gate["open"]
+                                 and (new_col, new_row) == tuple(gate["pos"]))
+
+                # Krat: probeer te duwen
+                hits_box     = (not out_of_bounds and not hits_wall
+                                and not hits_gate
+                                and (new_col, new_row) in box_positions)
+                box_push_ok  = False
+                pushed_idx   = -1
+                if hits_box:
+                    bdest_col = new_col + dc
+                    bdest_row = new_row + dr
+                    can_push  = (0 <= bdest_col < lvl["cols"]
+                                 and 0 <= bdest_row < lvl["rows"]
+                                 and (bdest_col, bdest_row) not in lvl["walls"]
+                                 and not (gate and not gate["open"]
+                                          and (bdest_col, bdest_row) == tuple(gate["pos"]))
+                                 and (bdest_col, bdest_row) not in box_positions)
+                    if can_push:
+                        box_push_ok = True
+                        for idx, b in enumerate(state["boxes"]):
+                            if b[0] == new_col and b[1] == new_row:
+                                pushed_idx = idx
+                                break
+
+                blocked = out_of_bounds or hits_wall or hits_gate or (hits_box and not box_push_ok)
+
+                if blocked:
+                    state["direction"]   = direction
+                    state["moves_left"] -= 1
+                    if state["moves_left"] == 0:
+                        state["status"] = "game_over"
+                        state["reason"] = "Geen moves meer!"
+                    continue   # ghost beweegt NIET
+
+                # ── Geldige move ─────────────────────────────────────────────
+                if box_push_ok and pushed_idx >= 0:
+                    state["boxes"][pushed_idx][0] += dc
+                    state["boxes"][pushed_idx][1] += dr
+
+                state["col"]        = new_col
+                state["row"]        = new_row
+                state["direction"]  = direction
+                state["moves_left"] -= 1
+
+                # One-shot gate
+                if gate and gate["open"] and (new_col, new_row) == tuple(gate["pos"]):
+                    gate["open"] = False
+
+                # Teleporter
+                tps = lvl["teleporters"]
+                if tps:
+                    pos = (state["col"], state["row"])
+                    for i, tp in enumerate(tps):
+                        if pos == tuple(tp):
+                            dest = tps[1 - i]
+                            state["col"] = dest[0]
+                            state["row"] = dest[1]
+                            break
+
+                # Power-up oppakken
+                pu = lvl["powerup"]
+                if (pu and not state["powerup_taken"]
+                        and (state["col"], state["row"]) == tuple(pu["pos"])):
+                    state["powerup_taken"] = True
+                    state["powered_turns"] = POWER_TURNS
+
+                # 1) Speler op ghost?
+                if state["ghost"] and not state["ghost_eaten"]:
+                    g = state["ghost"]
+                    if g["col"] == state["col"] and g["row"] == state["row"]:
+                        if state["powered_turns"] > 0:
+                            state["ghost_eaten"]   = True
+                            state["powered_turns"] = 0
+                        else:
+                            state["status"] = "game_over"
+                            state["reason"] = "Gevangen door de geest!"
+                            continue
+
+                # 2) Doelen checken
+                for goal in state["goals"]:
+                    if (not goal.get("collected")
+                            and (state["col"], state["row"]) == tuple(goal["pos"])):
+                        goal["collected"] = True
+
+                goals_done = all(g.get("collected") for g in state["goals"])
+                ghost_done = (not lvl["require_ghost_eaten"] or state["ghost_eaten"])
+                if goals_done and ghost_done:
+                    state["status"] = "level_complete"
+                    continue
+
+                # 3) Power-up aftellen
+                if state["powered_turns"] > 0:
+                    state["powered_turns"] -= 1
+
+                # 4) Ghost-beurt
+                if state["ghost"] and not state["ghost_eaten"]:
+                    gate_walls = set()
+                    if gate and not gate["open"]:
+                        gate_walls.add(tuple(gate["pos"]))
+                    move_ghost(state["ghost"], lvl["walls"], gate_walls)
+                    g = state["ghost"]
+                    if g["col"] == state["col"] and g["row"] == state["row"]:
+                        if state["powered_turns"] > 0:
+                            state["ghost_eaten"]   = True
+                            state["powered_turns"] = 0
+                        else:
+                            state["status"] = "game_over"
+                            state["reason"] = "Gevangen door de geest!"
+                            continue
+
+                # 5) Moves op?
+                if state["moves_left"] == 0:
+                    state["status"] = "game_over"
+                    state["reason"] = "Geen moves meer!"
+
+        # ── Tekenen ──────────────────────────────────────────────────────────
+        screen.fill(C_BG)
+
+        # Logische grid-surface
+        gw = lvl["cols"] * lvl["cell"] + PADDING * 2 + 50
+        gh = lvl["rows"] * lvl["cell"] + PADDING * 2 + 115
+        grid_surf = pygame.Surface((gw, gh))
+        grid_surf.fill(C_BG)
+
+        border = pygame.Rect(PADDING-5, PADDING-5,
+                             lvl["cols"]*lvl["cell"]+10,
+                             lvl["rows"]*lvl["cell"]+10)
+        pygame.draw.rect(grid_surf, C_BORDER, border, 3, border_radius=6)
+
+        draw_grid(grid_surf, lvl, font_small, t)
+
+        gate = state["gate"]
+        if gate:
+            draw_gate(grid_surf, gate["pos"][0], gate["pos"][1], lvl, gate["open"], t)
+
+        pu = lvl["powerup"]
+        if pu and not state["powerup_taken"]:
+            draw_lightning(grid_surf, pu["pos"][0], pu["pos"][1], lvl, t)
+
+        for goal in state["goals"]:
+            if not goal.get("collected"):
+                gc, gr = goal["pos"]
+                if goal["type"] == "food":
+                    draw_food(grid_surf, gc, gr, lvl, t)
+                else:
+                    draw_banana(grid_surf, gc, gr, lvl, t)
+
+        for box in state["boxes"]:
+            draw_box(grid_surf, box[0], box[1], lvl)
+
+        if state["ghost"] and not state["ghost_eaten"]:
+            g      = state["ghost"]
+            scared = state["powered_turns"] > 0
+            draw_ghost(grid_surf, g["col"], g["row"], lvl, t, scared)
+
+        powered = state["powered_turns"] > 0
+        draw_pacman(grid_surf, state["col"], state["row"], lvl, t,
+                    state["direction"], powered)
+
+        draw_hud(grid_surf, lvl, state, font_med, font_small)
+
+        if state["status"] == "level_complete":
+            nxt = current_level_idx + 1
+            draw_level_complete(grid_surf, font_big, font_small, gw, gh,
+                                nxt + 1 if nxt < len(LEVELS) else None)
+        elif state["status"] == "game_over":
+            draw_game_over(grid_surf, font_big, font_small, state["reason"], gw, gh)
+
+        # ── Scale-to-fit: altijd passend binnen scherm ───────────────────────
+        scale = min(fs_w / gw, fs_h / gh, 1.0)
+        if scale < 1.0:
+            scaled_w = max(1, int(gw * scale))
+            scaled_h = max(1, int(gh * scale))
+            grid_surf = pygame.transform.smoothscale(grid_surf, (scaled_w, scaled_h))
+            gw, gh = scaled_w, scaled_h
+
+        screen.blit(grid_surf, ((fs_w - gw) // 2, (fs_h - gh) // 2))
+        pygame.display.flip()
+
+
+if __name__ == "__main__":
+    main()

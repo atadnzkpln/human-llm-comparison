@@ -1,0 +1,11 @@
+participant_id,agent_type,verdict_accuracy_low,verdict_accuracy_medium,verdict_accuracy_high,verdict_accuracy_maximum,words_accuracy_low,words_accuracy_medium,words_accuracy_high,words_accuracy_maximum,final_answer_low,final_answer_medium,final_answer_high,final_answer_maximum
+1,human,1.0,0.4,0.3333,1.0,1.0,0.2,0.3333,1.0,1.0,0.0,0,0.0
+2,human,1.0,0.6,0.6667,1.0,1.0,0.8,0.6667,1.0,1.0,1.0,0,1.0
+5,human,1.0,0.6,0.6667,1.0,0.6667,0.0,0.1667,0.8889,1.0,0.0,0,0.0
+7,human,1.0,1.0,0.5,1.0,1.0,0.8,1.0,1.0,1.0,1.0,0,1.0
+8,human,1.0,0.4,1.0,0.8889,1.0,0.4,0.8333,1.0,1.0,0.0,0,1.0
+11,human,1.0,1.0,0.8333,1.0,1.0,1.0,0.8333,0.7778,1.0,1.0,0,1.0
+claude,LLM,1.0,0.9333,0.6667,0.3333,1.0,0.9333,0.7222,0.2222,1.0,1.0,0,0.0
+deepseek,LLM,1.0,0.6,0.8333,0.7222,0.8889,0.5333,0.7778,0.5833,0.6667,0.3333,0,0.0
+gemini,LLM,1.0,0.8667,0.8889,0.7407,1.0,0.8667,0.8889,0.7037,1.0,0.6667,0,0.0
+gpt,LLM,1.0,1.0,0.8333,0.9259,1.0,1.0,0.8333,0.8889,1.0,1.0,0,0.0
