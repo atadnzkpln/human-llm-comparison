@@ -7,6 +7,10 @@ The code + analyses folder contains the analysis and game engine code files used
 
 After downloading the repository, open the code folder in your Python terminal. Then run the relevant command below. Depending on your Python installation, use either python or python3.
 
+## Requirements
+
+The games use pygame, so install it before running them.
+
 ## Pac-Man-like game
 
 To run the Pac-Man-like game with explicit rules:
